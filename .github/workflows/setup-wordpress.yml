@@ -1,0 +1,79 @@
+name: Setup WordPress on Vercel
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Manual trigger for testing
+
+jobs:
+  setup-wordpress:
+    name: Setup and Deploy WordPress
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Checkout the repository
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # Step 2: Set up PHP
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.0'
+        extensions: mbstring, mysqli
+
+    # Step 3: Install Composer
+    - name: Install Composer
+      run: |
+        curl -sS https://getcomposer.org/installer | php
+        php composer.phar install
+
+    # Step 4: Download WordPress
+    - name: Download WordPress
+      run: |
+        wget https://wordpress.org/latest.tar.gz
+        tar -xvzf latest.tar.gz
+        mv wordpress/* ./
+        rm -rf wordpress latest.tar.gz
+
+    # Step 5: Generate wp-config.php
+    - name: Create wp-config.php
+      run: |
+        echo "<?php
+        define('DB_NAME', getenv('DB_NAME'));
+        define('DB_USER', getenv('DB_USER'));
+        define('DB_PASSWORD', getenv('DB_PASSWORD'));
+        define('DB_HOST', getenv('DB_HOST'));
+        define('WP_HOME', getenv('WP_HOME'));
+        define('WP_SITEURL', getenv('WP_SITEURL'));
+        define('FS_METHOD', 'direct');" > wp-config.php
+
+    # Step 6: Create vercel.json
+    - name: Create vercel.json
+      run: |
+        echo '{
+          "version": 2,
+          "builds": [
+            {
+              "src": "api/index.php",
+              "use": "@vercel/php"
+            },
+            {
+              "src": "wordpress/**",
+              "use": "@vercel/static"
+            }
+          ],
+          "routes": [
+            { "src": "/(.*)", "dest": "/api/index.php" }
+          ]
+        }' > vercel.json
+
+    # Step 7: Commit changes
+    - name: Commit changes
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git add .
+        git commit -m "Automated WordPress setup for Vercel"
+        git push origin main

@@ -1,0 +1,23 @@
+# WordPress core files
+api/wordpress/wp-config.php
+api/wordpress/wp-content/uploads/
+api/wordpress/wp-content/upgrade/
+api/wordpress/wp-content/backup-db/
+api/wordpress/wp-content/cache/
+api/wordpress/wp-content/backups/
+
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.*
+
+# Development files
+*.log
+.DS_Store
+Thumbs.db
+
+# Composer
+vendor/
+composer.phar

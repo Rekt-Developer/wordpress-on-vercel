@@ -1,0 +1,25 @@
+{
+  "name": "rekt-developer/wordpress-on-vercel",
+  "description": "WordPress installation optimized for Vercel deployment",
+  "type": "project",
+  "license": "GPL-2.0-or-later",
+  "authors": [
+    {
+      "name": "Isaac Likhon",
+      "email": "isaac.likhon@yahoo.com"
+    }
+  ],
+  "homepage": "https://github.com/Rekt-Developer/wordpress-on-vercel",
+  "require": {
+    "php": ">=8.2",
+    "vlucas/phpdotenv": "^5.6",
+    "roots/wp-password-bcrypt": "^1.1"
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true,
+  "config": {
+    "optimize-autoloader": true,
+    "preferred-install": "dist",
+    "sort-packages": true
+  }
+}

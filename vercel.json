@@ -1,0 +1,46 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/wordpress/index.php",
+      "use": "@vercel/php@0.6.0"
+    },
+    {
+      "src": "api/wordpress/wp-content/uploads/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/wp-content/uploads/(.*)",
+      "dest": "/api/wordpress/wp-content/uploads/$1"
+    },
+    {
+      "src": "/(.*)\\.php$",
+      "dest": "/api/wordpress/$1.php"
+    },
+    {
+      "src": "/wp-admin/(.*)",
+      "dest": "/api/wordpress/wp-admin/$1"
+    },
+    {
+      "src": "/wp-content/(.*)",
+      "dest": "/api/wordpress/wp-content/$1"
+    },
+    {
+      "src": "/wp-includes/(.*)",
+      "dest": "/api/wordpress/wp-includes/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/wordpress/index.php"
+    }
+  ],
+  "env": {
+    "PHP_MEMORY_LIMIT": "256M",
+    "MAX_EXECUTION_TIME": "30",
+    "PHP_MAX_INPUT_VARS": "3000",
+    "PHP_POST_MAX_SIZE": "64M",
+    "PHP_UPLOAD_MAX_FILESIZE": "64M"
+  }
+}

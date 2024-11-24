@@ -35,32 +35,61 @@ jobs:
           coverage: none
           tools: composer:v2
           
+      - name: Create composer.json
+        run: |
+          cat > composer.json << 'EOL'
+          {
+            "name": "rekt-developer/wordpress-on-vercel",
+            "description": "WordPress installation optimized for Vercel deployment",
+            "type": "project",
+            "license": "GPL-2.0-or-later",
+            "authors": [
+              {
+                "name": "Isaac Likhon",
+                "email": "isaac.likhon@yahoo.com"
+              }
+            ],
+            "homepage": "https://github.com/Rekt-Developer/wordpress-on-vercel",
+            "require": {
+              "php": ">=8.2",
+              "vlucas/phpdotenv": "^5.6",
+              "roots/wp-password-bcrypt": "^1.1"
+            },
+            "minimum-stability": "stable",
+            "prefer-stable": true,
+            "config": {
+              "optimize-autoloader": true,
+              "preferred-install": "dist",
+              "sort-packages": true
+            }
+          }
+          EOL
+          
       - name: Setup Project Structure
         run: |
           mkdir -p public api/wordpress
           
       - name: Download and Configure WordPress
         run: |
-          # Download WordPress
           wget https://wordpress.org/latest.tar.gz
           tar -xzf latest.tar.gz
           mv wordpress/* api/wordpress/
           rm -rf wordpress latest.tar.gz
           
-          # Create necessary directories
           mkdir -p api/wordpress/wp-content/uploads
           chmod 755 api/wordpress/wp-content/uploads
           
-      - name: Generate Configuration Files
+      - name: Generate wp-config.php
         run: |
-          # Generate wp-config.php
           cat > api/wordpress/wp-config.php << 'EOL'
           <?php
+          require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+          
           define('DB_NAME', getenv('DB_NAME'));
           define('DB_USER', getenv('DB_USER'));
           define('DB_PASSWORD', getenv('DB_PASSWORD'));
           define('DB_HOST', getenv('DB_HOST'));
-          define('DB_CHARSET', 'utf8');
+          define('DB_CHARSET', 'utf8mb4');
           define('DB_COLLATE', '');
           
           define('WP_HOME', getenv('WP_HOME'));
@@ -70,12 +99,11 @@ jobs:
           define('AUTOMATIC_UPDATER_DISABLED', true);
           define('DISABLE_WP_CRON', true);
           define('FS_METHOD', 'direct');
+          define('WP_DEBUG', false);
           
-          // Security settings
           define('DISALLOW_FILE_EDIT', true);
           define('DISALLOW_FILE_MODS', true);
           
-          // Generate unique keys and salts from https://api.wordpress.org/secret-key/1.1/salt
           define('AUTH_KEY', getenv('WP_AUTH_KEY'));
           define('SECURE_AUTH_KEY', getenv('WP_SECURE_AUTH_KEY'));
           define('LOGGED_IN_KEY', getenv('WP_LOGGED_IN_KEY'));
@@ -94,7 +122,8 @@ jobs:
           require_once ABSPATH . 'wp-settings.php';
           EOL
           
-          # Generate .htaccess
+      - name: Create .htaccess
+        run: |
           cat > api/wordpress/.htaccess << 'EOL'
           # BEGIN WordPress
           <IfModule mod_rewrite.c>
@@ -114,18 +143,23 @@ jobs:
               Header set X-XSS-Protection "1; mode=block"
               Header set Referrer-Policy "strict-origin-when-cross-origin"
               Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+              Header set Content-Security-Policy "upgrade-insecure-requests"
           </IfModule>
           
-          # Protect wp-config.php
           <Files wp-config.php>
               Order Allow,Deny
               Deny from all
           </Files>
+          
+          # Protect sensitive files
+          <FilesMatch "^.*\.(log|txt|md|json)$">
+              Order Allow,Deny
+              Deny from all
+          </FilesMatch>
           EOL
           
-      - name: Configure Vercel Deployment
+      - name: Create vercel.json
         run: |
-          # Create vercel.json
           cat > vercel.json << 'EOL'
           {
             "version": 2,
@@ -145,105 +179,46 @@ jobs:
                 "dest": "/api/wordpress/wp-content/uploads/$1"
               },
               {
+                "src": "/(.*)\\.php$",
+                "dest": "/api/wordpress/$1.php"
+              },
+              {
+                "src": "/wp-admin/(.*)",
+                "dest": "/api/wordpress/wp-admin/$1"
+              },
+              {
+                "src": "/wp-content/(.*)",
+                "dest": "/api/wordpress/wp-content/$1"
+              },
+              {
+                "src": "/wp-includes/(.*)",
+                "dest": "/api/wordpress/wp-includes/$1"
+              },
+              {
                 "src": "/(.*)",
                 "dest": "/api/wordpress/index.php"
               }
             ],
             "env": {
               "PHP_MEMORY_LIMIT": "256M",
-              "MAX_EXECUTION_TIME": "30"
+              "MAX_EXECUTION_TIME": "30",
+              "PHP_MAX_INPUT_VARS": "3000",
+              "PHP_POST_MAX_SIZE": "64M",
+              "PHP_UPLOAD_MAX_FILESIZE": "64M"
             }
           }
           EOL
           
-      - name: Generate Documentation
-        run: |
-          cat > README.md << 'EOL'
-          # WordPress on Vercel
-          
-          This repository contains a WordPress installation optimized for deployment on Vercel's serverless platform.
-          
-          ## Prerequisites
-          
-          - Vercel account
-          - MySQL/MariaDB database
-          - Environment variables configured in Vercel
-          
-          ## Environment Variables
-          
-          Configure the following environment variables in your Vercel project:
-          
-          ```
-          DB_NAME=your_database_name
-          DB_USER=your_database_user
-          DB_PASSWORD=your_database_password
-          DB_HOST=your_database_host
-          WP_HOME=https://your-domain.com
-          WP_SITEURL=https://your-domain.com
-          
-          # WordPress Security Keys (Generate at https://api.wordpress.org/secret-key/1.1/salt/)
-          WP_AUTH_KEY=your_auth_key
-          WP_SECURE_AUTH_KEY=your_secure_auth_key
-          WP_LOGGED_IN_KEY=your_logged_in_key
-          WP_NONCE_KEY=your_nonce_key
-          WP_AUTH_SALT=your_auth_salt
-          WP_SECURE_AUTH_SALT=your_secure_auth_salt
-          WP_LOGGED_IN_SALT=your_logged_in_salt
-          WP_NONCE_SALT=your_nonce_salt
-          ```
-          
-          ## Development
-          
-          1. Clone this repository
-          2. Install dependencies: `composer install`
-          3. Configure environment variables
-          4. Run locally: `vercel dev`
-          
-          ## Deployment
-          
-          The project will automatically deploy to Vercel when changes are pushed to the main branch.
-          
-          ## Security Considerations
-          
-          - File editing is disabled in the WordPress admin
-          - WordPress automatic updates are disabled (manage updates manually)
-          - WordPress cron is disabled (use external cron service)
-          - Security headers are configured in .htaccess
-          - wp-config.php access is restricted
-          
-          ## Performance Optimizations
-          
-          - Static file caching through Vercel's CDN
-          - Optimized routing configuration
-          - PHP memory limits configured for serverless environment
-          
-          ## Known Limitations
-          
-          - File uploads are handled through Vercel's static deployment
-          - Some WordPress plugins may not work in a serverless environment
-          - Session handling may require additional configuration
-          
-          ## Contributing
-          
-          1. Fork the repository
-          2. Create a feature branch
-          3. Submit a pull request
-          
-          ## License
-          
-          This project is licensed under the GPL v2 or later.
-          EOL
-          
-      - name: Create gitignore
+      - name: Create .gitignore
         run: |
           cat > .gitignore << 'EOL'
           # WordPress core files
-          wp-config.php
-          wp-content/uploads/
-          wp-content/upgrade/
-          wp-content/backup-db/
-          wp-content/cache/
-          wp-content/backups/
+          api/wordpress/wp-config.php
+          api/wordpress/wp-content/uploads/
+          api/wordpress/wp-content/upgrade/
+          api/wordpress/wp-content/backup-db/
+          api/wordpress/wp-content/cache/
+          api/wordpress/wp-content/backups/
           
           # Node modules
           node_modules/
@@ -264,11 +239,59 @@ jobs:
           
       - name: Install Dependencies
         run: |
-          composer init --quiet --no-interaction
-          composer require --no-interaction --no-progress \
-            vlucas/phpdotenv \
-            roots/wp-password-bcrypt
-            
+          composer install --no-dev --optimize-autoloader --no-interaction
+          
+      - name: Generate README.md
+        run: |
+          cat > README.md << 'EOL'
+          # WordPress on Vercel
+          
+          Serverless WordPress deployment on Vercel platform.
+          
+          ## Setup Instructions
+          
+          1. Fork this repository
+          2. Create a new project on Vercel
+          3. Connect your database (MySQL/MariaDB)
+          4. Configure environment variables
+          
+          ### Required Environment Variables
+          
+          ```
+          DB_NAME=your_database_name
+          DB_USER=your_database_user
+          DB_PASSWORD=your_database_password
+          DB_HOST=your_database_host
+          WP_HOME=https://your-domain.com
+          WP_SITEURL=https://your-domain.com
+          
+          # Generate these at https://api.wordpress.org/secret-key/1.1/salt/
+          WP_AUTH_KEY=
+          WP_SECURE_AUTH_KEY=
+          WP_LOGGED_IN_KEY=
+          WP_NONCE_KEY=
+          WP_AUTH_SALT=
+          WP_SECURE_AUTH_SALT=
+          WP_LOGGED_IN_SALT=
+          WP_NONCE_SALT=
+          ```
+          
+          ## Features
+          
+          - Optimized for Vercel serverless environment
+          - Security hardening
+          - CDN support
+          - Automated deployment
+          
+          ## Author
+          
+          Isaac Likhon (isaac.likhon@yahoo.com)
+          
+          ## License
+          
+          GPL-2.0-or-later
+          EOL
+          
       - name: Commit and Push Changes
         run: |
           git config --global user.name "GitHub Actions"
